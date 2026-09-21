@@ -2,53 +2,56 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Petrilac — Test del chatbot</title>
 <style>
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:640px;margin:40px auto;padding:0 20px;color:#222;}
-  h1{font-size:22px;}
-  .box{background:#f7f7f8;border:1px solid #e5e5e7;border-radius:10px;padding:16px;margin:16px 0;}
-  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
-  input[type=text]{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box;}
-  button{margin-top:10px;background:#e30613;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;}
-  .status{font-size:13px;margin-top:8px;}
-  .ok{color:#0a7a0a;}
-  .err{color:#c00;}
-  code{background:#eee;padding:1px 5px;border-radius:4px;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    background:#fff url("./img/petrilac-home.jpg") top center / cover no-repeat;
+    min-height:100vh;
+  }
+  /* Etiqueta discreta de "modo prueba": se expande para cambiar el endpoint */
+  #test-chip{
+    position:fixed;left:14px;bottom:14px;z-index:10;
+    background:rgba(20,20,20,.78);color:#fff;border-radius:10px;
+    font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.25);
+    max-width:calc(100vw - 120px);
+  }
+  #test-chip summary{cursor:pointer;padding:8px 12px;list-style:none;font-weight:600;}
+  #test-chip summary::-webkit-details-marker{display:none;}
+  #test-chip summary::before{content:"● ";color:#8CFF8C;}
+  #test-chip .body{padding:0 12px 12px;width:320px;max-width:100%;}
+  #test-chip label{display:block;margin:4px 0 6px;opacity:.8;}
+  #test-chip input{width:100%;box-sizing:border-box;padding:7px 9px;border-radius:6px;border:none;font-size:12px;}
+  #test-chip button{margin-top:8px;background:#F05423;color:#fff;border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;}
+  #test-chip p{margin:8px 0 0;opacity:.7;line-height:1.4;}
 </style>
 </head>
 <body>
-<h1>Petrilac — página de prueba del chatbot</h1>
-<p>Esta página está pensada para probar el bot ya desplegado en Cloudflare Workers,
-  <strong>antes</strong> de embeberlo en petrilac.com. Pegá acá abajo la URL de tu Worker
-  (la que te da Cloudflare al desplegar, terminada en <code>/chat</code>) y guardala —
-  la burbuja de chat va a usar esa URL desde este navegador.</p>
 
-<div class="box">
-  <label for="endpoint">URL del backend (Worker)</label>
-  <input type="text" id="endpoint" placeholder="https://petrilac-chatbot.tu-subdominio.workers.dev/chat" />
-  <button id="save">Guardar y cargar el chat</button>
-  <div id="status" class="status"></div>
-</div>
-
-<p style="font-size:13px;color:#666;">
-  Si el chat no responde, lo más común es un problema de CORS: en el Worker,
-  la variable <code>ALLOWED_ORIGIN</code> tiene que incluir el dominio de esta página
-  de GitHub Pages (o estar en <code>*</code> mientras estás probando).
-</p>
+<details id="test-chip">
+  <summary>Modo prueba — no es el sitio real</summary>
+  <div class="body">
+    <label for="endpoint">URL del backend (Worker)</label>
+    <input type="text" id="endpoint" />
+    <button id="save">Guardar y recargar chat</button>
+    <p>El fondo es una captura estática del inicio de petrilac.com; solo el chat (abajo a la derecha) es funcional.</p>
+  </div>
+</details>
 
 <script>
+  var DEFAULT_ENDPOINT = "https://petrilac-chatbot.cristobalg.workers.dev/chat";
   var STORAGE_KEY = "petrilac_test_endpoint";
   var input = document.getElementById("endpoint");
-  var status = document.getElementById("status");
-  var saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) input.value = saved;
+  var saved = null;
+  try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  input.value = saved || DEFAULT_ENDPOINT;
 
   function loadWidget(endpoint) {
-    var existing = document.getElementById("pt-widget-script");
-    if (existing) existing.remove();
-    document.getElementById("pt-chat-bubble") && document.getElementById("pt-chat-bubble").remove();
-    document.getElementById("pt-chat-panel") && document.getElementById("pt-chat-panel").remove();
-
+    ["pt-widget-script","pt-chat-bubble","pt-chat-panel"].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.remove();
+    });
     var s = document.createElement("script");
     s.id = "pt-widget-script";
     s.src = "./widget/petrilac-chat-widget.js";
@@ -57,19 +60,13 @@
   }
 
   document.getElementById("save").addEventListener("click", function () {
-    var val = input.value.trim();
-    if (!val) {
-      status.textContent = "Pegá una URL primero.";
-      status.className = "status err";
-      return;
-    }
-    localStorage.setItem(STORAGE_KEY, val);
-    status.textContent = "Listo — abrí el chat con la burbuja roja abajo a la derecha.";
-    status.className = "status ok";
+    var val = input.value.trim() || DEFAULT_ENDPOINT;
+    try { localStorage.setItem(STORAGE_KEY, val); } catch (e) {}
     loadWidget(val);
+    document.getElementById("test-chip").open = false;
   });
 
-  if (saved) loadWidget(saved);
+  loadWidget(input.value);
 </script>
 </body>
 </html>
