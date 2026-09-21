@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Petrilac — Test del chatbot</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:640px;margin:40px auto;padding:0 20px;color:#222;}
+  h1{font-size:22px;}
+  .box{background:#f7f7f8;border:1px solid #e5e5e7;border-radius:10px;padding:16px;margin:16px 0;}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+  input[type=text]{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box;}
+  button{margin-top:10px;background:#e30613;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;}
+  .status{font-size:13px;margin-top:8px;}
+  .ok{color:#0a7a0a;}
+  .err{color:#c00;}
+  code{background:#eee;padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<h1>Petrilac — página de prueba del chatbot</h1>
+<p>Esta página está pensada para probar el bot ya desplegado en Cloudflare Workers,
+  <strong>antes</strong> de embeberlo en petrilac.com. Pegá acá abajo la URL de tu Worker
+  (la que te da Cloudflare al desplegar, terminada en <code>/chat</code>) y guardala —
+  la burbuja de chat va a usar esa URL desde este navegador.</p>
+
+<div class="box">
+  <label for="endpoint">URL del backend (Worker)</label>
+  <input type="text" id="endpoint" placeholder="https://petrilac-chatbot.tu-subdominio.workers.dev/chat" />
+  <button id="save">Guardar y cargar el chat</button>
+  <div id="status" class="status"></div>
+</div>
+
+<p style="font-size:13px;color:#666;">
+  Si el chat no responde, lo más común es un problema de CORS: en el Worker,
+  la variable <code>ALLOWED_ORIGIN</code> tiene que incluir el dominio de esta página
+  de GitHub Pages (o estar en <code>*</code> mientras estás probando).
+</p>
+
+<script>
+  var STORAGE_KEY = "petrilac_test_endpoint";
+  var input = document.getElementById("endpoint");
+  var status = document.getElementById("status");
+  var saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) input.value = saved;
+
+  function loadWidget(endpoint) {
+    var existing = document.getElementById("pt-widget-script");
+    if (existing) existing.remove();
+    document.getElementById("pt-chat-bubble") && document.getElementById("pt-chat-bubble").remove();
+    document.getElementById("pt-chat-panel") && document.getElementById("pt-chat-panel").remove();
+
+    var s = document.createElement("script");
+    s.id = "pt-widget-script";
+    s.src = "./widget/petrilac-chat-widget.js";
+    s.setAttribute("data-endpoint", endpoint);
+    document.body.appendChild(s);
+  }
+
+  document.getElementById("save").addEventListener("click", function () {
+    var val = input.value.trim();
+    if (!val) {
+      status.textContent = "Pegá una URL primero.";
+      status.className = "status err";
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, val);
+    status.textContent = "Listo — abrí el chat con la burbuja roja abajo a la derecha.";
+    status.className = "status ok";
+    loadWidget(val);
+  });
+
+  if (saved) loadWidget(saved);
+</script>
+</body>
+</html>

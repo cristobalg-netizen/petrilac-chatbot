@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Test local — chatbot Petrilac</title>
+</head>
+<body>
+<h1 style="font-family:sans-serif">Test local (respuestas reales de Claude)</h1>
+<p style="font-family:sans-serif">
+  Esta página llama a tu Worker corriendo en <code>http://localhost:8787/chat</code>
+  (levantado con <code>wrangler dev</code>). A diferencia de <code>demo.html</code>,
+  acá las respuestas son reales, generadas por Claude con el contexto de Petrilac.
+  Abrí este archivo haciendo doble clic (o arrastrándolo a Chrome) mientras
+  <code>wrangler dev</code> está corriendo en la terminal.
+</p>
+<script src="./petrilac-chat-widget.js" data-endpoint="http://localhost:8787/chat"></script>
+</body>
+</html>

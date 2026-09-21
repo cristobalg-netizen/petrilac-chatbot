@@ -1,0 +1,14 @@
+name = "petrilac-chatbot"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# ANTHROPIC_API_KEY is a SECRET — never put it here. Set it in the Cloudflare
+# dashboard (Workers & Pages → tu Worker → Settings → Variables and Secrets →
+# Add → Encrypt) or locally via `wrangler secret put ANTHROPIC_API_KEY`.
+# [vars] below are plain (non-secret) config, editable directly here.
+[vars]
+MODEL = "claude-haiku-4-5"
+# "*" while testing (GitHub Pages, localhost, etc). Lock this down to
+# "https://www.petrilac.com" (comma-separate for more than one origin)
+# before this goes live on the real site.
+ALLOWED_ORIGIN = "*"

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Demo widget Petrilac</title>
+</head>
+<body>
+<h1 style="font-family:sans-serif">petrilac.com (simulado)</h1>
+<p style="font-family:sans-serif">Esta página simula el sitio real con el widget embebido. Las respuestas están mockeadas (sin llamar a la API real) solo para validar la interfaz.</p>
+
+<script>
+  // Mock fetch so we can visually test the widget without a deployed backend.
+  var realFetch = window.fetch;
+  window.fetch = function (url, opts) {
+    if (String(url).endsWith("/chat")) {
+      var body = JSON.parse(opts.body);
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          resolve({
+            ok: true,
+            json: function () {
+              return Promise.resolve({
+                reply:
+                  "Para una reja de metal con óxido suelto, primero hay que cepillar o lijar para sacar el óxido, limpiar bien la superficie y aplicar FerroBet Desoxidante antes del esmalte. ¿La reja está en exterior?",
+                sources: [{ title: "Desoxidante Fosfatizante FERROBET", url: "https://www.petrilac.com/x" }],
+              });
+            },
+          });
+        }, 700);
+      });
+    }
+    return realFetch(url, opts);
+  };
+</script>
+<script src="./petrilac-chat-widget.js" data-endpoint="https://example.com/chat"></script>
+</body>
+</html>
