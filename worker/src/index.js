@@ -1,5 +1,16 @@
 import corpusData from "./corpus.json";
 import { SearchIndex } from "./search.js";
+import { PANEL_HTML } from "./panel.js";
+import {
+  hayBase,
+  hashVisitante,
+  revisarLimites,
+  contarUso,
+  guardarConversacion,
+  calcularCosto,
+  limpiarViejo,
+  MENSAJES_LIMITE,
+} from "./db.js";
 
 // Built once per Worker isolate (cold start), reused across requests.
 const index = new SearchIndex(corpusData);
@@ -65,10 +76,137 @@ function buildContextBlock(passages) {
     .join("\n\n---\n\n");
 }
 
+/** Compara sin filtrar por tiempo cuánto coincide. */
+function tokenValido(recibido, esperado) {
+  if (!esperado || !recibido || recibido.length !== esperado.length) return false;
+  let dif = 0;
+  for (let i = 0; i < recibido.length; i++) dif |= recibido.charCodeAt(i) ^ esperado.charCodeAt(i);
+  return dif === 0;
+}
+
+function autorizado(request, env) {
+  const cabecera = request.headers.get("Authorization") || "";
+  return tokenValido(cabecera.replace(/^Bearer\s+/i, ""), env.PANEL_TOKEN || "");
+}
+
+const json = (datos, status = 200) =>
+  new Response(JSON.stringify(datos), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+
+/** Endpoints del panel: sólo lectura salvo bloquear/desbloquear. */
+async function manejarPanel(request, env, url) {
+  if (url.pathname === "/panel") {
+    return new Response(PANEL_HTML, {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
+  if (!autorizado(request, env)) return json({ error: "no_autorizado" }, 401);
+  if (!hayBase(env)) return json({ error: "sin_base" }, 503);
+
+  const hoy = `d:${new Date().toISOString().slice(0, 10)}`;
+  const hace30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+  if (url.pathname === "/api/resumen") {
+    const [dia, mes, convs] = await env.DB.batch([
+      env.DB.prepare("SELECT n, costo FROM global WHERE periodo = ?").bind(hoy),
+      env.DB.prepare(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(costo),0) AS costo FROM conversaciones WHERE ts > ?"
+      ).bind(hace30),
+      env.DB.prepare(
+        "SELECT COUNT(DISTINCT conv_id) AS n FROM conversaciones WHERE ts > ?"
+      ).bind(hace30),
+    ]);
+    return json({
+      mensajes_hoy: dia.results[0]?.n || 0,
+      costo_hoy: dia.results[0]?.costo || 0,
+      mensajes_30: mes.results[0]?.n || 0,
+      costo_30: mes.results[0]?.costo || 0,
+      conversaciones_30: convs.results[0]?.n || 0,
+    });
+  }
+
+  if (url.pathname === "/api/conversaciones") {
+    const q = (url.searchParams.get("q") || "").slice(0, 100);
+    const stmt = q
+      ? env.DB.prepare(
+          "SELECT ts, pregunta, respuesta, costo FROM conversaciones WHERE pregunta LIKE ? ORDER BY ts DESC LIMIT 200"
+        ).bind(`%${q}%`)
+      : env.DB.prepare(
+          "SELECT ts, pregunta, respuesta, costo FROM conversaciones ORDER BY ts DESC LIMIT 200"
+        );
+    const { results } = await stmt.all();
+    return json({ filas: results });
+  }
+
+  if (url.pathname === "/api/visitantes") {
+    const { results } = await env.DB.prepare(
+      `SELECT u.visitante, SUM(u.n) AS n, b.visitante IS NOT NULL AS bloqueado, b.motivo
+         FROM uso u LEFT JOIN bloqueos b ON b.visitante = u.visitante
+        WHERE u.periodo LIKE 'd:%' AND u.actualizado > ?
+        GROUP BY u.visitante ORDER BY n DESC LIMIT 100`
+    )
+      .bind(hace30)
+      .all();
+    return json({ filas: results });
+  }
+
+  if (url.pathname === "/api/exportar") {
+    const { results } = await env.DB.prepare(
+      "SELECT ts, conv_id, pregunta, respuesta, costo FROM conversaciones ORDER BY ts DESC LIMIT 5000"
+    ).all();
+    const celda = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const csv = [
+      "fecha,conversacion,consulta,respuesta,costo_usd",
+      ...results.map((f) =>
+        [new Date(f.ts).toISOString(), f.conv_id, f.pregunta, f.respuesta, f.costo]
+          .map(celda)
+          .join(",")
+      ),
+    ].join("\n");
+    return new Response("﻿" + csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="conversaciones-petrilac.csv"',
+      },
+    });
+  }
+
+  if (request.method === "POST" && (url.pathname === "/api/bloquear" || url.pathname === "/api/desbloquear")) {
+    const { visitante, motivo } = await request.json();
+    if (!visitante) return json({ error: "falta_visitante" }, 400);
+    if (url.pathname === "/api/bloquear") {
+      await env.DB.prepare(
+        `INSERT INTO bloqueos (visitante, motivo, ts, automatico) VALUES (?, ?, ?, 0)
+         ON CONFLICT(visitante) DO UPDATE SET motivo = excluded.motivo, ts = excluded.ts, automatico = 0`
+      )
+        .bind(visitante, (motivo || "manual").slice(0, 200), Date.now())
+        .run();
+    } else {
+      await env.DB.prepare("DELETE FROM bloqueos WHERE visitante = ?").bind(visitante).run();
+    }
+    return json({ ok: true });
+  }
+
+  return json({ error: "no_encontrado" }, 404);
+}
+
 export default {
-  async fetch(request, env) {
+  /** Limpieza diaria de registros vencidos (cron en wrangler.toml). */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(limpiarViejo(env));
+  },
+
+  async fetch(request, env, ctx) {
     const allowedOrigin = env.ALLOWED_ORIGIN || "*";
     const origin = request.headers.get("Origin") || "";
+    const url = new URL(request.url);
+
+    if (url.pathname === "/panel" || url.pathname.startsWith("/api/")) {
+      return manejarPanel(request, env, url);
+    }
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders(origin, allowedOrigin) });
@@ -78,7 +216,6 @@ export default {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    const url = new URL(request.url);
     if (url.pathname !== "/chat") {
       return new Response("Not found", { status: 404 });
     }
@@ -101,6 +238,20 @@ export default {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowedOrigin) },
       });
+    }
+
+    // Límites de uso. Si se alcanzó alguno, respondemos derivando al 0800
+    // SIN llamar a la API: ese caso no cuesta nada.
+    const ip = request.headers.get("CF-Connecting-IP") || "";
+    const visitante = await hashVisitante(ip, env);
+    const convId = (body.conversationId || "").toString().slice(0, 40) || "sin-id";
+    const limite = await revisarLimites(env, visitante, history.length);
+
+    if (!limite.permitido) {
+      return new Response(
+        JSON.stringify({ reply: MENSAJES_LIMITE[limite.motivo] || MENSAJES_LIMITE.global, limite: limite.motivo }),
+        { headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowedOrigin) } }
+      );
     }
 
     // Retrieve relevant passages for the latest user message.
@@ -152,6 +303,25 @@ ${contextBlock}`;
       .map((b) => b.text)
       .join("\n")
       .trim();
+
+    // Registro y contadores, después de responder: no demoran al visitante.
+    const tokensEntrada = data.usage?.input_tokens || 0;
+    const tokensSalida = data.usage?.output_tokens || 0;
+    const costo = calcularCosto(tokensEntrada, tokensSalida);
+    ctx.waitUntil(
+      Promise.all([
+        contarUso(env, visitante, costo),
+        guardarConversacion(env, {
+          convId,
+          pregunta: message,
+          respuesta: reply,
+          tokensEntrada,
+          tokensSalida,
+          costo,
+          fuentes: passages,
+        }),
+      ])
+    );
 
     return new Response(
       JSON.stringify({

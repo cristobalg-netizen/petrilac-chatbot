@@ -17,6 +17,20 @@
   }
 
   var STORAGE_KEY = "petrilac_chat_history_v1";
+  var CONV_KEY = "petrilac_chat_conv_id";
+
+  // Identificador de conversación: agrupa los mensajes de una misma charla en
+  // el panel. Es aleatorio, no identifica a la persona.
+  var CONV_ID;
+  try {
+    CONV_ID = sessionStorage.getItem(CONV_KEY);
+    if (!CONV_ID) {
+      CONV_ID = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+      sessionStorage.setItem(CONV_KEY, CONV_ID);
+    }
+  } catch (e) {
+    CONV_ID = "sin-id";
+  }
   // Paleta real del sitio (tomada de los CTA/botones de petrilac.com):
   var BRAND_COLOR = "#F05423";
   var BRAND_COLOR_DARK = "#D1431A";
@@ -230,6 +244,7 @@
       body: JSON.stringify({
         message: text,
         history: state.history.slice(0, -1).slice(-8),
+        conversationId: CONV_ID,
       }),
     })
       .then(function (res) {

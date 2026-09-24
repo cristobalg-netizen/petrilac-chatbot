@@ -2,11 +2,30 @@ name = "petrilac-chatbot"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
-# ANTHROPIC_API_KEY is a SECRET — never put it here. Set it in the Cloudflare
-# dashboard (Workers & Pages → tu Worker → Settings → Variables and Secrets →
-# Add → Encrypt) or locally via `wrangler secret put ANTHROPIC_API_KEY`.
-# [vars] below are plain (non-secret) config, editable directly here.
+# ANTHROPIC_API_KEY y PANEL_TOKEN son SECRETOS — nunca van acá. Se cargan en el
+# dashboard de Cloudflare (Workers & Pages → tu Worker → Settings → Variables
+# and Secrets → Add → tipo Secret).
+# [vars] de abajo es configuración común, editable directamente en este archivo.
 [vars]
 MODEL = "claude-haiku-4-5"
-# Locked to the GitHub Pages test page + the real site (comma-separated).
+# Restringido a la página de prueba de GitHub Pages + el sitio real.
 ALLOWED_ORIGIN = "https://cristobalg-netizen.github.io,https://www.petrilac.com"
+
+# Límites de uso. Si se alcanza alguno, el bot deriva al 0800 sin llamar a la
+# API, así que ese mensaje no tiene costo.
+LIMITE_HORA = "15"            # mensajes por visitante por hora
+LIMITE_DIA = "40"             # mensajes por visitante por día
+LIMITE_CONVERSACION = "20"    # mensajes de una misma conversación
+LIMITE_GLOBAL_DIA = "500"     # tope de toda la instalación por día (~US$1,50)
+LIMITE_BLOQUEO_AUTO = "120"   # a partir de acá, el visitante queda bloqueado solo
+
+# Base de datos del registro y los contadores.
+# El database_id lo completa quien cree la base en Cloudflare (D1 → Create).
+[[d1_databases]]
+binding = "DB"
+database_name = "petrilac-chatbot"
+database_id = "348f6ae2-f644-4662-8f9a-8ef02c7e3bd9"
+
+# Limpieza diaria: conversaciones a los 90 días, datos de uso a los 30.
+[triggers]
+crons = ["17 4 * * *"]
