@@ -102,6 +102,15 @@
     "#pt-chat-messages::-webkit-scrollbar-thumb{background:#e0ddd9;border-radius:3px;}",
     ".pt-msg{max-width:84%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.5;",
     "white-space:pre-wrap;word-wrap:break-word;animation:pt-fade-in .25s ease;}",
+    ".pt-msg-bot{white-space:normal;}",
+    ".pt-msg-bot p{margin:0 0 7px;}",
+    ".pt-msg-bot p:last-child{margin-bottom:0;}",
+    ".pt-msg-bot strong{font-weight:700;}",
+    ".pt-msg-bot .pt-h{font-weight:700;margin:9px 0 5px;}",
+    ".pt-msg-bot .pt-h:first-child{margin-top:0;}",
+    ".pt-msg-bot ul,.pt-msg-bot ol{margin:5px 0 8px;padding-left:19px;}",
+    ".pt-msg-bot li{margin:2px 0;}",
+    ".pt-msg-bot code{background:#f3f0ec;padding:1px 5px;border-radius:4px;font-size:12.5px;}",
     ".pt-msg-user{align-self:flex-end;background:" + BRAND_COLOR + ";color:#fff;border-bottom-right-radius:4px;}",
     ".pt-msg-bot{align-self:flex-start;background:#fff;color:#2a2a2a;border:1px solid #ece9e6;",
     "border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.03);}",
@@ -166,10 +175,76 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  // Markdown mínimo y seguro: primero se escapa TODO el HTML y recién después
+  // se reintroducen las etiquetas que generamos nosotros.
+  function escaparHtml(t) {
+    return t
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function formatearRespuesta(texto) {
+    var lineas = escaparHtml(texto).split("\n");
+    var html = "";
+    var lista = null; // "ul" | "ol" | null
+
+    function cerrarLista() {
+      if (lista) { html += "</" + lista + ">"; lista = null; }
+    }
+
+    for (var i = 0; i < lineas.length; i++) {
+      var l = lineas[i].trim();
+
+      if (!l) { cerrarLista(); continue; }
+
+      // Encabezados de markdown: los mostramos como línea en negrita.
+      var enc = l.match(/^#{1,6}\s+(.*)$/);
+      if (enc) {
+        cerrarLista();
+        html += "<div class='pt-h'>" + enlinea(enc[1]) + "</div>";
+        continue;
+      }
+
+      var vinieta = l.match(/^[-*•]\s+(.*)$/);
+      if (vinieta) {
+        if (lista !== "ul") { cerrarLista(); html += "<ul>"; lista = "ul"; }
+        html += "<li>" + enlinea(vinieta[1]) + "</li>";
+        continue;
+      }
+
+      var numerada = l.match(/^\d+[.)]\s+(.*)$/);
+      if (numerada) {
+        if (lista !== "ol") { cerrarLista(); html += "<ol>"; lista = "ol"; }
+        html += "<li>" + enlinea(numerada[1]) + "</li>";
+        continue;
+      }
+
+      cerrarLista();
+      html += "<p>" + enlinea(l) + "</p>";
+    }
+    cerrarLista();
+    return html;
+  }
+
+  // Negrita, cursiva y código dentro de una línea.
+  function enlinea(t) {
+    return t
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+      .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+
   function renderMessage(role, content) {
     var div = document.createElement("div");
     div.className = "pt-msg " + (role === "user" ? "pt-msg-user" : "pt-msg-bot");
-    div.textContent = content;
+    if (role === "user") {
+      div.textContent = content;
+    } else {
+      div.innerHTML = formatearRespuesta(content);
+    }
     messagesEl.appendChild(div);
     scrollToBottom();
     return div;
