@@ -63,7 +63,7 @@
   // ---- styles ----
   var style = document.createElement("style");
   style.textContent = [
-    "#pt-chat-bubble{position:fixed;bottom:18px;right:20px;width:96px;height:96px;border-radius:50%;",
+    "#pt-chat-bubble{position:fixed;bottom:18px;right:20px;width:128px;height:128px;border-radius:50%;",
     "background:transparent;box-shadow:none;cursor:pointer;padding:0;",
     "display:flex;align-items:center;justify-content:center;z-index:999999;border:none;",
     "transition:transform .18s ease,box-shadow .18s ease;}",
@@ -79,7 +79,7 @@
     "@keyframes pt-pop{0%{opacity:0;transform:translateY(14px) scale(.97);}100%{opacity:1;transform:translateY(0) scale(1);}}",
     "@keyframes pt-fade-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}",
     "@keyframes pt-bounce{0%,80%,100%{transform:scale(0);opacity:.4;}40%{transform:scale(1);opacity:1;}}",
-    "#pt-chat-panel{position:fixed;bottom:124px;right:20px;width:368px;max-width:92vw;height:540px;max-height:75vh;",
+    "#pt-chat-panel{position:fixed;bottom:156px;right:20px;width:368px;max-width:92vw;height:540px;max-height:75vh;",
     "background:#fff;border-radius:18px;box-shadow:0 16px 48px rgba(20,20,20,.18),0 2px 8px rgba(20,20,20,.08);",
     "display:none;flex-direction:column;overflow:hidden;z-index:999999;font-family:" + FONT_STACK + ";}",
     "#pt-chat-panel.pt-open{display:flex;animation:pt-pop .22s cubic-bezier(.2,.9,.3,1.3);}",
@@ -134,8 +134,8 @@
     "#pt-chat-send svg{width:16px;height:16px;fill:#fff;margin-left:-1px;}",
     "#pt-chat-footer{text-align:center;font-size:10px;color:#b3aeaa;padding:5px 0 9px;background:#fff;",
     "letter-spacing:.01em;}",
-    "@media (max-width:480px){#pt-chat-panel{right:10px;left:10px;width:auto;bottom:108px;}",
-    "#pt-chat-bubble{right:14px;bottom:14px;width:84px;height:84px;}}",
+    "@media (max-width:480px){#pt-chat-panel{right:10px;left:10px;width:auto;bottom:132px;}",
+    "#pt-chat-bubble{right:14px;bottom:14px;width:108px;height:108px;}}",
   ].join("");
   document.head.appendChild(style);
 
