@@ -255,7 +255,7 @@ export default {
     }
 
     // Retrieve relevant passages for the latest user message.
-    const passages = index.search(message, 5);
+    const passages = index.search(message, 6);
     const contextBlock = buildContextBlock(passages);
 
     const systemWithContext = `${SYSTEM_PROMPT}
